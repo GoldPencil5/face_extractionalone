@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Face Detection</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@0.0.5/dist/face-landmarks-detection.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@0.0.5/dist/face-landmarks-detection.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-api"></script>
+</head>
+<body>
+  <h1>Face Detection Demo</h1>
+    <input type="file" id="inputImage">
+    <br><br>
+    <canvas id="overlay" width="0" height="0"></canvas>
+    <br><br>
+    <button id="detectButton" onclick="detectFaces()">Detect Faces</button>
+    <br><br>
+    <div id="output"></div>
+  <video id="video" width="640" height="480"></video>
+  <canvas id="canvas"></canvas>
+  <script>
+    const video = document.getElementById('video')
+    const canvas = document.getElementById('canvas')
+    const ctx = canvas.getContext('2d')
+    let detections = []
+
+    // 웹캠 권한을 요청하고, 영상을 캡처합니다.
+    navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+      video.srcObject = stream
+      video.play()
+      setInterval(() => {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        faceapi.detectAllFaces(canvas).withFaceLandmarks().then((result) => {
+          detections = result
+          ctx.lineWidth = 2
+          ctx.strokeStyle = 'green'
+          detections.forEach(detection => {
+            const box = detection.detection.box
+            ctx.strokeRect(box.x, box.y, box.width, box.height)
+          })
+        })
+      }, 100)
+    })
+
+    // 마우스 클릭이나 스페이스바를 누를 때마다 이미지를 추출하고 저장합니다.
+    window.addEventListener('click', () => {
+      saveFaceImages()
+    })
+    window.addEventListener('keydown', (event) => {
+      if (event.code === 'Space') {
+        saveFaceImages()
+      }
+    })
+
+    // face-api.js를 사용하여 얼굴 영역을 검출하고, 각 얼굴 영역을 이미지로 저장합니다.
+function saveFaceImages() {
+  detections.forEach((detection, i) => {
+    const faceCanvas = document.createElement('canvas')
+    const faceCtx = faceCanvas.getContext('2d')
+    const box = detection.detection.box
+    const landmarks = detection.landmarks
+    const faceWidth = Math.abs(landmarks[0].x - landmarks[16].x) * 3
+    const faceHeight = Math.abs(landmarks[27].y - landmarks[8].y) * 3
+    const faceX = box.x + (box.width / 2) - (faceWidth / 2)
+    const faceY = box.y + (box.height / 2) - (faceHeight / 2)
+    faceCanvas.width = faceWidth
+    faceCanvas.height = faceHeight
+    faceCtx.drawImage(canvas, faceX, faceY, faceWidth, faceHeight, 0, 0, faceWidth, faceHeight)
+    const faceImage = faceCanvas.toDataURL('image/jpeg', 1.0)
+    const downloadLink = document.createElement('a')
+    downloadLink.download = `face-${i}.jpg`
+    downloadLink.href = faceImage
+    downloadLink.click()
+  })
+}
+</script>
+</body>
+</html>
